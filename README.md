@@ -12,7 +12,7 @@ and result formats.
 | Salesfinity | Dialer call logs, dispositions, summaries | `SALESFINITY_API_KEY` |
 | Fathom | Meeting recordings and summaries | `FATHOM_API_KEY` |
 | Amplemarket | People and company prospecting records | `AMPLEMARKET_API_KEY` |
-| OpenFunnel | Agentic account/prospect research findings | `OPENFUNNEL_API_KEY` |
+| OpenFunnel | Agentic account/prospect research findings (via OpenFunnel's own hosted MCP server) | `OPENFUNNEL_API_KEY` |
 
 A source is only queried when its env vars are set; missing sources are
 reported back as `skipped` rather than causing the whole search to fail.
@@ -81,12 +81,25 @@ client config:
 ## Notes on API assumptions
 
 Salesforce's SOSL search endpoint is stable, documented, and used as-is.
-Salesfinity, Fathom, Amplemarket, and OpenFunnel's exact REST shapes vary by
-account/plan and aren't all publicly documented, so those connectors use a
-best-effort endpoint/field mapping with a configurable base URL
-(`<SOURCE>_BASE_URL`). Verify against your account's actual API docs and
-adjust the small `toResult`/matching logic in the relevant connector file if
-field names differ.
+Salesfinity, Fathom, and Amplemarket's exact REST shapes vary by account/plan
+and aren't all publicly documented, so those connectors use a best-effort
+endpoint/field mapping with a configurable base URL (`<SOURCE>_BASE_URL`).
+Verify against your account's actual API docs and adjust the small
+`toResult`/matching logic in the relevant connector file if field names
+differ.
+
+OpenFunnel is different: it's reached as an MCP server, not a REST API
+(`OPENFUNNEL_MCP_URL`, default `https://agents.openfunnel.dev/mcp`). The
+connector (`src/mcpClient.ts` + `src/connectors/openfunnel.ts`) connects as an
+MCP client, calls `listTools` to discover what's actually exposed, and picks a
+tool by matching name/description against `["search", "research", "find",
+"query"]` (override with `OPENFUNNEL_MCP_TOOL_NAME` if that heuristic picks
+the wrong one). It then maps a logical `{ query, limit }` onto whatever the
+chosen tool's input schema actually calls those fields, and normalizes
+structured content, or JSON/text found in the response, into `UnifiedResult`s.
+Point `OPENFUNNEL_MCP_URL` at a different environment if needed, and set
+`OPENFUNNEL_API_KEY` to whatever bearer token OpenFunnel issues for
+programmatic MCP access.
 
 ## Testing
 
